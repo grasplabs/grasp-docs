@@ -1,0 +1,15 @@
+// 确保深色模式下的 logo 正确显示
+.theme-container {
+  .navbar {
+    .logo {
+      img {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+    }
+  }
+}
+
+// // 深色模式下，样式调整
+// html[data-theme=dark] {
+
+// }
