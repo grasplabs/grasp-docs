@@ -48,7 +48,7 @@ async function main() {
 
   // Launch browser in cloud environment
   const connection = await grasp.launchBrowser({
-    appKey: 'YOUR_GRASP_APPKEY',
+    graspKey: 'YOUR_GRASP_KEY',
     timeout: 60000,
   });
 
@@ -82,7 +82,7 @@ Launches a browser instance in the cloud environment.
 
 **Parameters:**
 - `options` (object, optional):
-  - `YOUR_GRASP_APPKEY` (string): grasp appKey
+  - `YOUR_GRASP_KEY` (string): grasp key
   - `timeout` (number, optional): Connection timeout in milliseconds. Default: 30000
   - `headers` (object, optional): Additional HTTP headers for the connection
   - `slowMo` (number, optional): Slows down operations by specified milliseconds
@@ -96,7 +96,7 @@ Launches a browser instance in the cloud environment.
 **Example:**
 ```typescript
 const connection = await grasp.launchBrowser({
-  appKey: 'YOUR_GRASP_APPKEY',
+  graspKey: 'YOUR_GRASP_KEY',
   timeout: 60000
 });
 ```
