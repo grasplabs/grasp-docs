@@ -9,6 +9,11 @@
   }
 }
 
+// 移除VuePress默认的最大宽度限制
+.vp-theme-container[data-v-ec9917b8] {
+  max-width: none !important;
+}
+
 // 修复内容区域宽度问题
 .theme-default-content {
   max-width: none !important;
@@ -21,6 +26,12 @@
     max-width: 1200px !important;
     margin: 0 auto !important;
   }
+}
+
+// 针对所有可能的容器类名进行宽度重置
+[class*="vp-theme-container"],
+[class*="theme-container"] {
+  max-width: none !important;
 }
 
 // 修复代码块宽度
