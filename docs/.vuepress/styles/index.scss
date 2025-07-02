@@ -9,7 +9,89 @@
   }
 }
 
-// // 深色模式下，样式调整
-// html[data-theme=dark] {
+// 修复内容区域宽度问题
+.theme-default-content {
+  max-width: none !important;
+  padding: 2rem 2.5rem !important;
+}
 
-// }
+// 确保容器使用全宽
+.theme-container {
+  .theme-default-content:not(.custom) {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+  }
+}
+
+// 修复代码块宽度
+.theme-default-content {
+  div[class*="language-"] {
+    margin: 1rem 0 !important;
+    border-radius: 6px !important;
+  }
+  
+  pre, code {
+    font-family: 'Fira Code', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  }
+}
+
+// 响应式设计
+@media (max-width: 719px) {
+  .theme-default-content {
+    padding: 1.5rem !important;
+  }
+}
+
+@media (min-width: 720px) {
+  .theme-default-content {
+    padding: 2rem 2.5rem !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .theme-default-content {
+    padding: 2rem 3rem !important;
+  }
+}
+
+// 表格样式优化
+.theme-default-content {
+  table {
+    width: 100% !important;
+    margin: 1rem 0 !important;
+    
+    th, td {
+      padding: 0.75rem 1rem !important;
+      border: 1px solid var(--c-border) !important;
+    }
+    
+    th {
+      background-color: var(--c-bg-light) !important;
+      font-weight: 600 !important;
+    }
+  }
+}
+
+// 代码标签页样式
+.code-tabs {
+  margin: 1rem 0 !important;
+  
+  .code-tabs-nav {
+    display: flex !important;
+    border-bottom: 1px solid var(--c-border) !important;
+    margin-bottom: 0 !important;
+    
+    button {
+      padding: 0.5rem 1rem !important;
+      border: none !important;
+      background: transparent !important;
+      cursor: pointer !important;
+      border-bottom: 2px solid transparent !important;
+      
+      &.active {
+        border-bottom-color: var(--c-brand) !important;
+        color: var(--c-brand) !important;
+      }
+    }
+  }
+}
