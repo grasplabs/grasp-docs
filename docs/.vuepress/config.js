@@ -17,6 +17,22 @@ export default defineUserConfig({
         link: 'https://github.com/grasplabs',
       },
     ],
+    sidebar: [
+      {
+        text: 'Getting Started',
+        children: [
+          '/',
+          '/authentication',
+        ]
+      },
+      {
+        text: 'SDK Documentation',
+        children: [
+          '/typescript-sdk',
+          '/python-sdk',
+        ]
+      }
+    ]
   }),
 
   bundler: viteBundler(),
