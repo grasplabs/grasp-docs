@@ -38,11 +38,6 @@ export default defineUserConfig({
     editLink: false,
     lastUpdated: false,
     contributors: false,
-    // 确保内容区域有合适的宽度
-    themePlugins: {
-      // 禁用一些可能影响布局的插件
-      git: false,
-    }
   }),
 
   bundler: viteBundler({
