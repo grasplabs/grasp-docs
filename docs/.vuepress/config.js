@@ -102,7 +102,7 @@ export default defineUserConfig({
           }
         ],
         // 导航文本
-        selectLanguageText: '选择语言',
+        selectLanguageText: 'languages',
         selectLanguageAriaLabel: '选择语言',
         editLinkText: '编辑此页',
         lastUpdatedText: '上次更新',
@@ -145,7 +145,7 @@ export default defineUserConfig({
           }
         ],
         // 导航文本
-        selectLanguageText: '言語',
+        selectLanguageText: 'languages',
         selectLanguageAriaLabel: '言語を選択',
         editLinkText: 'このページを編集',
         lastUpdatedText: '最終更新',
