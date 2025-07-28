@@ -15,87 +15,88 @@ pip install grasp_sdk
 """
 Grasp SDK Python 使用示例
 
-此示例演示如何使用 grasp_sdk 启动浏览器、
-通过 CDP 连接、执行基本操作和截图。
+此示例演示如何使用 grasp_sdk 启动浏览器会话，
+通过 CDP 连接，执行基本操作，并使用各种服务。
 """
 
 import asyncio
 import os
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def main():
-    """主函数：演示基本的 Grasp SDK 用法"""
+    """主函数：演示基本的 Grasp SDK 使用方法"""
     
     # 检查 API 密钥
     api_key = os.getenv('GRASP_KEY')
     if not api_key:
         print("⚠️ 警告：未设置 GRASP_KEY 环境变量")
-        print("请设置 GRASP_KEY 环境变量或在 .env 文件中配置")
+        print("请设置 GRASP_KEY 环境变量或在 .env 文件中设置")
         print("示例：export GRASP_KEY=your_api_key_here")
         return
 
-    print("🚀 启动浏览器...")
+    print("🚀 启动浏览器会话...")
 
-    async with GraspServer({
-            # 'key': api_key,  # 如果设置了 GRASP_KEY 环境变量则可选
-            # 'type': 'chrome-stable',
-            # 'headless': False,
-            # 'adblock': True,
-            # 'debug': True,
-            'timeout': 3600000,  # 容器最多运行 1 小时（最大值：86400000 - 24小时）
-        }) as connection:
+    # 创建 Grasp 实例
+    grasp = Grasp(api_key=api_key)
     
-        try:
-            print(f"连接信息: {connection}")
-            print(f"WebSocket URL: {connection['ws_url']}")
-            print(f"HTTP URL: {connection['http_url']}")
-            
-            # 使用 Playwright 连接到 CDP
-            async with async_playwright() as p:
-                browser = await p.chromium.connect_over_cdp(
-                    connection['ws_url'],
-                    timeout=150000
-                )
-                
-                # 可选：等待一段时间
-                # await asyncio.sleep(10)
-                
-                # 创建第一个页面并访问网站
-                page1 = await browser.new_page()
-                await page1.goto('https://getgrasp.ai/', wait_until='domcontentloaded')
-                await page1.screenshot(path='grasp-ai.png')
-                await page1.close()
-                
-                # 获取或创建上下文
-                contexts = browser.contexts
-                context = contexts[0] if contexts else await browser.new_context()
-                
-                # 创建第二个页面
-                page2 = await context.new_page()
-                
-                # 将 HTML 字符串渲染到页面
-                await page2.set_content('<h1>Hello Grasp</h1>', wait_until='networkidle')
-                
-                # 截图
-                await page2.screenshot(path='hello-world.png', full_page=True)
-                
-                # 清理资源
-                await page2.close()
-                await context.close()
-                await browser.close()
-                
-            print('✅ 任务完成。')
-            
-        except Exception as e:
-            print(f"❌ 执行过程中出错: {str(e)}")
-            raise
+    # 启动新会话
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False,
+            'adblock': True
+        },
+        'timeout': 3600000,  # 会话最多运行 1 小时
+        'debug': True
+    })
+    
+    try:
+        print(f"会话 ID: {session.id}")
         
-        finally:
-            # 注意：使用异步上下文管理器时，资源会在代码执行结束时自动清理
-            # 以最小化消耗。
-            print("程序结束，资源将自动清理")
+        # 使用 Playwright 连接到浏览器
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            # 创建页面并访问网站
+            page = await browser.new_page()
+            await page.goto('https://getgrasp.ai/', wait_until='domcontentloaded')
+            
+            # 保存截图到远程目录
+            await page.screenshot(path='/home/user/downloads/grasp-ai.png')
+            
+            # 下载截图到本地
+            await session.files.download_file(
+                '/home/user/downloads/grasp-ai.png',
+                './grasp-ai.png'
+            )
+            
+            await page.close()
+            await browser.close()
+        
+        # 使用文件服务
+        await session.files.write_file('/home/user/test.txt', 'Hello Grasp!')
+        content = await session.files.read_file('/home/user/test.txt')
+        print(f"文件内容: {content}")
+        
+        # 使用终端服务
+        command = await session.terminal.run_command('ls -la /home/user')
+        await command.end()
+        
+        print('✅ 任务完成。')
+        
+    except Exception as e:
+        print(f"❌ 执行过程中发生错误: {str(e)}")
+        raise
+    
+    finally:
+        # 关闭会话以清理资源
+        await session.close()
+        print("会话已关闭，资源已清理")
 
 if __name__ == '__main__':
     # 运行主函数
@@ -104,51 +105,221 @@ if __name__ == '__main__':
 
 ## API 参考
 
-### `GraspServer(options)`
+### `Grasp(api_key)`
 
-在云环境中创建浏览器服务器实例。
+创建用于管理浏览器会话的 Grasp 实例。
 
 **参数：**
-- `options` (dict): 配置字典，包含以下键：
-  - `key` (str, 可选): Grasp API 密钥（如果未提供则使用 `GRASP_KEY` 环境变量）
-  - `type` (str, 可选): 浏览器类型 - `'chromium'` 或 `'chrome-stable'`。默认值：`'chromium'`
-  - `headless` (bool, 可选): 以无头模式运行。默认值：`True`
-  - `timeout` (int, 可选): 连接超时时间（毫秒）。默认值：900000（15分钟），最大值：86400000（24小时）
-  - `adblock` (bool, 可选): 启用广告拦截（实验性）。默认值：`False`
-  - `debug` (bool, 可选): 启用调试模式以获得详细输出。默认值：`False`
+- `api_key` (str, 可选): Grasp API 密钥（默认使用 `GRASP_KEY` 环境变量）
 
-**用法：**
+**示例：**
 ```python
-async with GraspServer({
-    'key': 'your_api_key_here',
-    'type': 'chrome-stable',
-    'headless': False,
-    'timeout': 3600000,
-    'adblock': True,
-    'debug': True
-}) as connection:
-    # 您的自动化代码
-    pass
+from grasp_sdk import Grasp
+
+grasp = Grasp(api_key='your_api_key_here')
 ```
+
+### `grasp.launch(options)`
+
+启动具有综合服务的新浏览器会话。
+
+**参数：**
+- `options` (dict, 可选): 配置选项
+  - `browser` (dict, 可选): 浏览器配置
+    - `type` (str, 可选): 浏览器类型 - `'chromium'` 或 `'chrome-stable'`。默认：`'chromium'`
+    - `headless` (bool, 可选): 以无头模式运行。默认：`True`
+    - `adblock` (bool, 可选): 启用广告拦截。默认：`False`
+  - `timeout` (int, 可选): 最大会话持续时间（毫秒）。默认：900000（15分钟），最大：86400000（24小时）
+  - `debug` (bool, 可选): 启用调试模式。默认：`False`
+
+**返回：**
+- `GraspSession`: 包含浏览器、终端、文件和代码运行器服务的会话对象
+
+**示例：**
+```python
+session = await grasp.launch({
+    'browser': {
+        'type': 'chrome-stable',
+        'headless': False,
+        'adblock': True
+    },
+    'timeout': 3600000,
+    'debug': True
+})
+```
+
+### `grasp.connect(session_id)`
+
+连接到现有的浏览器会话。
+
+**参数：**
+- `session_id` (str): 要连接的现有会话的 ID
+
+**返回：**
+- `GraspSession`: 现有会话的会话对象
+
+### `GraspSession`
+
+提供对所有 Grasp 服务访问的主会话对象。
+
+**属性：**
+- `id` (str): 唯一会话标识符
+- `browser` (GraspBrowser): 用于 CDP 连接和浏览器管理的浏览器服务
+- `terminal` (TerminalService): 用于运行 shell 命令的终端服务
+- `files` (FileSystemService): 用于文件操作的文件系统服务
+
+**方法：**
+
+#### `session.get_host(port)`
+获取会话中特定端口的主机 URL。
+
+**参数：**
+- `port` (int): 端口号
+
+**返回：**
+- `str`: 指定端口的主机 URL
+
+#### `session.close()`
+关闭会话并释放所有资源。
+
+**返回：**
+- `None`
+
+### `GraspBrowser`
+
+用于管理 CDP 连接和浏览器相关操作的浏览器服务。
+
+**方法：**
+
+#### `browser.get_host()`
+获取浏览器主机 URL。
+
+**返回：**
+- `str`: 浏览器主机 URL
+
+#### `browser.get_endpoint()`
+获取用于 CDP 连接的 WebSocket 端点 URL。
+
+**返回：**
+- `str`: 用于与 Playwright/Puppeteer 连接的 WebSocket URL
+
+#### `browser.download_replay_video(local_path)` (实验性)
+下载浏览器会话的回放视频。
+
+**参数：**
+- `local_path` (str): 保存视频文件的本地路径
+
+**返回：**
+- `None`
+
+### `TerminalService`
+
+用于在远程环境中执行 shell 命令的终端服务。
+
+**方法：**
+
+#### `terminal.run_command(command, options)`
+执行 shell 命令并返回可流式传输的响应。
+
+**参数：**
+- `command` (str): 要执行的 shell 命令
+- `options` (dict, 可选): 命令执行选项
+  - `cwd` (str, 可选): 命令的工作目录
+  - `env` (dict, 可选): 环境变量
+  - `timeout` (int, 可选): 命令超时时间（毫秒）
+
+**返回：**
+- `StreamableCommandResult`: 包含以下方法的对象：
+  - `end()`: 等待命令完成
+  - `kill()`: 终止正在运行的命令
+  - `json()`: 以 JSON 格式获取命令结果
+
+### `FileSystemService`
+
+用于在本地和远程环境之间管理文件的文件系统服务。
+
+**方法：**
+
+#### `files.upload_file(local_path, remote_path)`
+将文件从本地系统上传到远程环境。
+
+**参数：**
+- `local_path` (str): 本地文件路径
+- `remote_path` (str): 远程文件路径
+
+**返回：**
+- `None`
+
+#### `files.download_file(remote_path, local_path)`
+将文件从远程环境下载到本地系统。
+
+**参数：**
+- `remote_path` (str): 远程文件路径
+- `local_path` (str): 本地文件路径
+
+**返回：**
+- `None`
+
+#### `files.write_file(remote_path, content)`
+将内容写入远程环境中的文件。
+
+**参数：**
+- `remote_path` (str): 远程文件路径
+- `content` (str | bytes): 文件内容
+
+**返回：**
+- `None`
+
+#### `files.read_file(remote_path, encoding)`
+从远程环境读取文件。
+
+**参数：**
+- `remote_path` (str): 远程文件路径
+- `encoding` (str, 可选): 文件编码 - `'utf8'`、`'base64'` 或 `'binary'`。默认：`'utf8'`
+
+**返回：**
+- `str | bytes`: 文件内容
 
 ## 与 Playwright 一起使用
 
-启动浏览器后，使用 Playwright 的 CDP 连接来连接它：
+启动会话后，使用 Playwright 的 CDP 连接连接到浏览器：
 
 ```python
 from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
 
-async with async_playwright() as p:
-    browser = await p.chromium.connect_over_cdp(
-        connection['ws_url'],
-        timeout=150000
-    )
+async def main():
+    grasp = Grasp()
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False
+        }
+    })
     
-    # 像使用普通的 Playwright 浏览器实例一样使用浏览器
-    page = await browser.new_page()
-    # ... 您的自动化代码
+    async with async_playwright() as p:
+        browser = await p.chromium.connect_over_cdp(
+            session.browser.get_endpoint(),
+            timeout=150000
+        )
+        
+        # 将浏览器用作普通的 Playwright 浏览器实例
+        page = await browser.new_page()
+        await page.goto('https://example.com')
+        
+        # 保存截图到远程目录
+        await page.screenshot(path='/home/user/downloads/example.png')
+        
+        # 下载截图到本地
+        await session.files.download_file(
+            '/home/user/downloads/example.png',
+            './example.png'
+        )
+        
+        await page.close()
+        await browser.close()
     
-    await browser.close()
+    await session.close()
 ```
 
 ## 高级示例
@@ -158,15 +329,18 @@ async with async_playwright() as p:
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def multiple_pages():
     """多页面和上下文示例"""
     
-    async with GraspServer({'timeout': 3600000}) as connection:
+    grasp = Grasp()
+    session = await grasp.launch({'timeout': 3600000})
+    
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(
-                connection['ws_url'],
+                session.browser.get_endpoint(),
                 timeout=150000
             )
             
@@ -184,16 +358,25 @@ async def multiple_pages():
                 page2.goto('https://httpbin.org/json')
             )
             
-            # 截图
+            # 截图到远程目录
             await asyncio.gather(
-                page1.screenshot(path='example.png'),
-                page2.screenshot(path='httpbin.png')
+                page1.screenshot(path='/home/user/downloads/example.png'),
+                page2.screenshot(path='/home/user/downloads/httpbin.png')
+            )
+            
+            # 下载截图到本地
+            await asyncio.gather(
+                session.files.download_file('/home/user/downloads/example.png', './example.png'),
+                session.files.download_file('/home/user/downloads/httpbin.png', './httpbin.png')
             )
             
             # 清理
             await context1.close()
             await context2.close()
             await browser.close()
+    
+    finally:
+        await session.close()
 
 # 运行示例
 asyncio.run(multiple_pages())
@@ -204,26 +387,38 @@ asyncio.run(multiple_pages())
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def with_error_handling():
     """适当错误处理的示例"""
     
+    grasp = Grasp()
+    session = None
     browser = None
     
     try:
-        async with GraspServer({'timeout': 3600000}) as connection:
-            async with async_playwright() as p:
-                browser = await p.chromium.connect_over_cdp(
-                    connection['ws_url'],
-                    timeout=150000
-                )
-                
-                page = await browser.new_page()
-                await page.goto('https://example.com')
-                
-                # 您的自动化代码
-                
+        session = await grasp.launch({'timeout': 3600000})
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            page = await browser.new_page()
+            await page.goto('https://example.com')
+            
+            # 保存截图到远程目录
+            await page.screenshot(path='/home/user/downloads/example.png')
+            
+            # 下载截图到本地
+            await session.files.download_file(
+                '/home/user/downloads/example.png',
+                './example.png'
+            )
+            
+            await page.close()
+            
     except Exception as error:
         print(f"浏览器自动化过程中出错: {error}")
         raise
@@ -231,6 +426,8 @@ async def with_error_handling():
         # 始终清理资源
         if browser:
             await browser.close()
+        if session:
+            await session.close()
 
 # 运行示例
 asyncio.run(with_error_handling())
@@ -241,19 +438,26 @@ asyncio.run(with_error_handling())
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def scrape_website():
     """使用 Grasp SDK 进行网页抓取的示例"""
     
-    async with GraspServer({
+    grasp = Grasp()
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': True,  # 抓取时使用无头模式
+            'adblock': True
+        },
         'timeout': 3600000,
-        'headless': True,  # 抓取时使用无头模式
-    }) as connection:
-        
+        'debug': True
+    })
+    
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(
-                connection['ws_url'],
+                session.browser.get_endpoint(),
                 timeout=150000
             )
             
@@ -284,7 +488,22 @@ async def scrape_website():
             for quote in quotes[:3]:  # 打印前 3 条引用
                 print(f"- {quote['text']} - {quote['author']}")
             
+            # 将抓取的数据保存到远程文件
+            import json
+            quotes_json = json.dumps(quotes, ensure_ascii=False, indent=2)
+            await session.files.write_file('/home/user/downloads/quotes.json', quotes_json)
+            
+            # 下载到本地
+            await session.files.download_file(
+                '/home/user/downloads/quotes.json',
+                './quotes.json'
+            )
+            
+            await page.close()
             await browser.close()
+    
+    finally:
+        await session.close()
 
 # 运行抓取示例
 asyncio.run(scrape_website())
@@ -294,18 +513,188 @@ asyncio.run(scrape_website())
 
 **Python SDK 的重要注意事项：**
 
-- **推荐**：如上述示例所示使用异步上下文管理器。这确保云浏览器和计算资源在代码执行结束时立即回收，最小化消耗。
+```python
+import asyncio
+from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
 
-- **替代方案**：如果不使用异步上下文管理器，资源仍会在 `browser.close()` 后被监控服务销毁，但通常会有几十秒的延迟，这可能导致额外的资源使用。
+async def resource_management_example():
+    """资源管理最佳实践示例"""
+    
+    grasp = Grasp()
+    session = None
+    browser = None
+    
+    try:
+        # 启动会话
+        session = await grasp.launch({
+            'browser': {
+                'type': 'chrome-stable',
+                'headless': False
+            },
+            'timeout': 3600000
+        })
+        
+        # 连接到浏览器
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            page = await browser.new_page()
+            await page.goto('https://example.com')
+            
+            # 保存截图到远程目录
+            await page.screenshot(path='/home/user/downloads/example.png')
+            
+            # 使用文件服务
+            await session.files.write_file('/home/user/data.txt', 'Hello World')
+            content = await session.files.read_file('/home/user/data.txt')
+            print(f"文件内容: {content}")
+            
+            # 使用终端服务
+            command = await session.terminal.run_command('ls -la /home/user')
+            await command.end()
+            
+            # 下载文件到本地
+            await session.files.download_file(
+                '/home/user/downloads/example.png',
+                './example.png'
+            )
+            
+            await page.close()
+            
+    except Exception as e:
+        print(f"执行过程中出错: {e}")
+        raise
+    
+    finally:
+        # 确保资源被正确清理
+        if browser:
+            await browser.close()
+        if session:
+            await session.close()
+        print("所有资源已清理")
+
+# 运行示例
+asyncio.run(resource_management_example())
+```
+
+**重要提示：**
+- **推荐**：始终在 `finally` 块中关闭会话，确保资源被正确清理
+- **会话管理**：使用 `session.close()` 立即释放云资源，最小化消耗
+- **错误处理**：实现适当的错误处理以确保即使在异常情况下也能清理资源
 
 ## 最佳实践
 
-1. **使用异步上下文管理器**：始终使用 `async with GraspServer()` 进行自动资源清理
-2. **适当的错误处理**：实现 try-catch 块并在 finally 块中进行清理
-3. **资源清理**：始终正确关闭浏览器、上下文和页面
-4. **超时配置**：根据您的用例设置适当的超时时间
-5. **无头模式**：当不需要视觉渲染时使用无头模式以获得更好的性能
-6. **并发操作**：在可能的情况下使用 `asyncio.gather()` 进行并行操作
+1. **会话管理**：始终使用 `try/finally` 块确保会话被正确关闭
+2. **适当的错误处理**：实现完整的错误处理并在 finally 块中清理资源
+3. **资源清理**：始终正确关闭浏览器、页面和会话
+4. **超时设置**：根据用例设置适当的超时时间
+5. **无头模式**：当不需要视觉渲染时使用无头模式以提高性能
+6. **并发操作**：在可能的情况下使用 `asyncio.gather()` 进行并发操作
+7. **文件管理**：使用远程 `/home/user/downloads/` 目录保存文件，然后下载到本地
+8. **终端操作**：使用 `session.terminal` 运行命令并等待完成
+9. **服务集成**：充分利用 `session.files` 和 `session.terminal` 服务
+
+### 完整的最佳实践示例
+
+```python
+import asyncio
+import os
+from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
+
+async def best_practices_example():
+    """展示所有最佳实践的完整示例"""
+    
+    # 1. 检查 API 密钥
+    api_key = os.getenv('GRASP_KEY')
+    if not api_key:
+        raise ValueError("需要设置 GRASP_KEY 环境变量")
+    
+    grasp = Grasp(api_key=api_key)
+    session = None
+    browser = None
+    
+    try:
+        # 2. 启动会话并设置适当的配置
+        session = await grasp.launch({
+            'browser': {
+                'type': 'chrome-stable',
+                'headless': False,  # 根据需要调整
+                'adblock': True
+            },
+            'timeout': 3600000,  # 1 小时
+            'debug': True
+        })
+        
+        print(f"会话已启动，ID: {session.id}")
+        
+        # 3. 连接到浏览器
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            # 4. 执行自动化任务
+            page = await browser.new_page()
+            await page.goto('https://example.com', wait_until='domcontentloaded')
+            
+            # 5. 文件管理最佳实践
+            screenshot_path = '/home/user/downloads/screenshot.png'
+            await page.screenshot(path=screenshot_path)
+            
+            # 6. 使用文件服务
+            await session.files.write_file(
+                '/home/user/downloads/data.json',
+                '{"status": "success", "timestamp": "' + str(asyncio.get_event_loop().time()) + '"}'
+            )
+            
+            # 7. 使用终端服务
+            command = await session.terminal.run_command('ls -la /home/user/downloads')
+            await command.end()
+            
+            # 8. 下载文件到本地
+            await asyncio.gather(
+                session.files.download_file(screenshot_path, './screenshot.png'),
+                session.files.download_file('/home/user/downloads/data.json', './data.json')
+            )
+            
+            print("任务完成，文件已下载")
+            
+            # 9. 清理页面资源
+            await page.close()
+            
+    except Exception as e:
+        print(f"执行过程中出错: {e}")
+        # 记录错误详情
+        import traceback
+        traceback.print_exc()
+        raise
+    
+    finally:
+        # 10. 确保所有资源被清理
+        if browser:
+            try:
+                await browser.close()
+                print("浏览器已关闭")
+            except Exception as e:
+                print(f"关闭浏览器时出错: {e}")
+        
+        if session:
+            try:
+                await session.close()
+                print("会话已关闭")
+            except Exception as e:
+                print(f"关闭会话时出错: {e}")
+
+# 运行最佳实践示例
+if __name__ == '__main__':
+    asyncio.run(best_practices_example())
+```
 
 ## 常见模式
 

@@ -1,6 +1,6 @@
 # Python SDK
 
-The Grasp Python SDK provides a powerful and easy-to-use interface for browser automation in cloud environments.
+The Grasp Python SDK provides a comprehensive solution for browser automation, code execution, file management, and terminal operations in cloud environments.
 
 ## Installation
 
@@ -15,15 +15,15 @@ pip install grasp_sdk
 """
 Grasp SDK Python Usage Example
 
-This example demonstrates how to use grasp_sdk to launch a browser, 
-connect via CDP, perform basic operations, and take screenshots.
+This example demonstrates how to use grasp_sdk with the new session-based API
+for browser automation, file operations, and terminal commands.
 """
 
 import asyncio
 import os
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def main():
     """Main function: demonstrates basic Grasp SDK usage"""
@@ -36,66 +36,69 @@ async def main():
         print("Example: export GRASP_KEY=your_api_key_here")
         return
 
-    print("🚀 Starting browser...")
+    print("🚀 Starting browser session...")
 
-    async with GraspServer({
-            # 'key': api_key,  # Optional if GRASP_KEY env var is set
-            # 'type': 'chrome-stable',
-            # 'headless': False,
-            # 'adblock': True,
-            # 'debug': True,
-            'timeout': 3600000,  # Container runs for max 1 hour (max: 86400000 - 24 hours)
-        }) as connection:
+    # Create Grasp instance
+    grasp = Grasp({'apiKey': api_key})
     
-        try:
-            print(f"Connection info: {connection}")
-            print(f"WebSocket URL: {connection['ws_url']}")
-            print(f"HTTP URL: {connection['http_url']}")
-            
-            # Use Playwright to connect to CDP
-            async with async_playwright() as p:
-                browser = await p.chromium.connect_over_cdp(
-                    connection['ws_url'],
-                    timeout=150000
-                )
-                
-                # Optional: wait for some time
-                # await asyncio.sleep(10)
-                
-                # Create first page and visit website
-                page1 = await browser.new_page()
-                await page1.goto('https://getgrasp.ai/', wait_until='domcontentloaded')
-                await page1.screenshot(path='grasp-ai.png')
-                await page1.close()
-                
-                # Get or create context
-                contexts = browser.contexts
-                context = contexts[0] if contexts else await browser.new_context()
-                
-                # Create second page
-                page2 = await context.new_page()
-                
-                # Render HTML string to page
-                await page2.set_content('<h1>Hello Grasp</h1>', wait_until='networkidle')
-                
-                # Take screenshot
-                await page2.screenshot(path='hello-world.png', full_page=True)
-                
-                # Clean up resources
-                await page2.close()
-                await context.close()
-                await browser.close()
-                
-            print('✅ Task completed.')
-            
-        except Exception as e:
-            print(f"❌ Error during execution: {str(e)}")
-            raise
+    # Launch session
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False,
+            'adblock': True
+        },
+        'timeout': 3600000,  # Session runs for max 1 hour
+        'debug': True
+    })
+    
+    try:
+        print(f"Session ID: {session.id}")
+        print(f"WebSocket URL: {session.browser.get_endpoint()}")
         
-        finally:
-            # Note: When using the async context manager, resources are automatically cleaned up
-            # when the code execution ends to minimize consumption.
-            print("Program ended, resources will be automatically cleaned up")
+        # Use Playwright to connect to browser
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            # Create page and visit website
+            page = await browser.new_page()
+            await page.goto('https://getgrasp.ai/', wait_until='domcontentloaded')
+            
+            # Take screenshot and save to remote downloads
+            await page.screenshot(path='/home/user/downloads/grasp-ai.png')
+            
+            # Download screenshot to local
+            await session.files.download_file('/home/user/downloads/grasp-ai.png', './grasp-ai.png')
+            
+            # Create HTML content and screenshot
+            await page.set_content('<h1>Hello Grasp</h1>', wait_until='networkidle')
+            await page.screenshot(path='/home/user/downloads/hello-world.png', full_page=True)
+            
+            await browser.close()
+        
+        # Use terminal service
+        terminal_result = await session.terminal.run_command('echo "Hello from terminal!"')
+        await terminal_result.end()
+        print(f"Terminal output: {terminal_result.stdout.getvalue()}")
+        
+        # Use files service
+        await session.files.write_file('/home/user/downloads/test.txt', 'Hello from Python SDK!')
+        content = await session.files.read_file('/home/user/downloads/test.txt')
+        print(f"File content: {content}")
+        
+        print('✅ Task completed.')
+        
+    except Exception as e:
+        print(f"❌ Error during execution: {str(e)}")
+        raise
+    
+    finally:
+        # Always close the session
+        await session.close()
+        print("Session closed, resources cleaned up")
 
 if __name__ == '__main__':
     # Run main function
@@ -104,51 +107,247 @@ if __name__ == '__main__':
 
 ## API Reference
 
-### `GraspServer(options)`
+### Grasp Class
 
-Creates a browser server instance in the cloud environment.
+The main entry point for the Grasp SDK.
+
+```python
+from grasp_sdk import Grasp
+
+grasp = Grasp(options)
+```
 
 **Parameters:**
-- `options` (dict): Configuration dictionary with the following keys:
-  - `key` (str, optional): Grasp API key (uses `GRASP_KEY` env var if not provided)
-  - `type` (str, optional): Browser type - `'chromium'` or `'chrome-stable'`. Default: `'chromium'`
-  - `headless` (bool, optional): Run in headless mode. Default: `True`
-  - `timeout` (int, optional): Connection timeout in milliseconds. Default: 900000 (15 minutes), Max: 86400000 (24 hours)
-  - `adblock` (bool, optional): Enable ad blocking (experimental). Default: `False`
-  - `debug` (bool, optional): Enable debug mode for verbose output. Default: `False`
+- `options` (dict): Configuration options
+  - `apiKey` (str, optional): API key (defaults to GRASP_KEY environment variable)
+  - `region` (str, optional): Server region
 
-**Usage:**
-```python
-async with GraspServer({
-    'key': 'your_api_key_here',
-    'type': 'chrome-stable',
-    'headless': False,
-    'timeout': 3600000,
-    'adblock': True,
-    'debug': True
-}) as connection:
-    # Your automation code here
-    pass
-```
+**Methods:**
+
+#### `launch(options=None)`
+
+Launches a new browser session.
+
+**Parameters:**
+- `options` (dict, optional): Launch configuration
+  - `browser` (dict, optional): Browser configuration
+    - `type` (str): Browser type ('chrome-stable', 'chrome-dev', 'firefox')
+    - `headless` (bool): Run browser in headless mode
+    - `adblock` (bool): Enable ad blocking
+  - `timeout` (int): Session timeout in milliseconds
+  - `debug` (bool): Enable debug mode
+
+**Returns:**
+- `GraspSession`: Session instance
+
+#### `connect(session_id)`
+
+Connects to an existing session.
+
+**Parameters:**
+- `session_id` (str): Session ID to connect to
+
+**Returns:**
+- `GraspSession`: Session instance
+
+### GraspSession Class
+
+Represents an active browser session with integrated services.
+
+**Properties:**
+- `id` (str): Session identifier
+- `browser` (GraspBrowser): Browser service instance
+- `terminal` (TerminalService): Terminal service instance
+- `files` (FileSystemService): File system service instance
+
+**Methods:**
+
+#### `get_host(port)`
+
+Gets the external host address for a specific port.
+
+**Parameters:**
+- `port` (int): Port number
+
+**Returns:**
+- `str`: External host URL
+
+#### `close()`
+
+Closes the session and cleans up all resources.
+
+### GraspBrowser Class
+
+Provides browser-specific functionality.
+
+**Methods:**
+
+#### `get_host()`
+
+Gets the browser host address.
+
+**Returns:**
+- `str`: Browser host URL
+
+#### `get_endpoint()`
+
+Gets the WebSocket endpoint URL for CDP connection.
+
+**Returns:**
+- `str`: WebSocket URL for Playwright connection
+
+#### `download_replay_video(local_path)`
+
+Downloads session replay video (requires terminal and files services).
+
+**Parameters:**
+- `local_path` (str): Local path to save the video
+
+#### `get_current_page_target_info()` (Experimental)
+
+Gets information about the current page target.
+
+**Returns:**
+- `dict`: Page target information
+
+#### `get_liveview_streaming_url()` (Experimental)
+
+Gets the live view streaming URL.
+
+**Returns:**
+- `str`: Streaming URL
+
+#### `get_liveview_page_url()` (Experimental)
+
+Gets the live view page URL.
+
+**Returns:**
+- `str`: Live view page URL
+
+### TerminalService Class
+
+Provides terminal command execution capabilities.
+
+#### `run_command(command, options=None)`
+
+Executes a command in the sandbox terminal.
+
+**Parameters:**
+- `command` (str): Command to execute
+- `options` (dict, optional): Execution options
+  - `cwd` (str): Working directory
+  - `env` (dict): Environment variables
+  - `timeout` (int): Command timeout in milliseconds
+
+**Returns:**
+- `StreamableCommandResult`: Command result with streaming capabilities
+
+**StreamableCommandResult Methods:**
+- `on(event, callback)`: Register event listener ('data', 'error', 'end')
+- `off(event, callback)`: Remove event listener
+- `end()`: Wait for command completion
+- `kill()`: Terminate the command
+- `json()`: Get result as JSON (for commands that output JSON)
+
+**Properties:**
+- `stdout` (StringIO): Standard output stream
+- `stderr` (StringIO): Standard error stream
+
+### FileSystemService Class
+
+Provides file system operations in the sandbox.
+
+#### `upload_file(local_path, remote_path)`
+
+Uploads a file from local to sandbox.
+
+**Parameters:**
+- `local_path` (str): Local file path
+- `remote_path` (str): Remote file path in sandbox
+
+#### `download_file(remote_path, local_path)`
+
+Downloads a file from sandbox to local.
+
+**Parameters:**
+- `remote_path` (str): Remote file path in sandbox
+- `local_path` (str): Local file path
+
+#### `write_file(remote_path, content)`
+
+Writes content to a file in the sandbox.
+
+**Parameters:**
+- `remote_path` (str): Remote file path
+- `content` (str): File content
+
+#### `read_file(remote_path)`
+
+Reads content from a file in the sandbox.
+
+**Parameters:**
+- `remote_path` (str): Remote file path
+
+**Returns:**
+- `str`: File content
+
+#### `sync_downloads_directory(local_dir)` (Experimental)
+
+Synchronizes the sandbox downloads directory with a local directory.
+
+**Parameters:**
+- `local_dir` (str): Local directory path
 
 ## Using with Playwright
 
-After launching a browser, connect to it using Playwright's CDP connection:
+The Grasp SDK integrates seamlessly with Playwright for browser automation:
 
 ```python
+import asyncio
 from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
 
-async with async_playwright() as p:
-    browser = await p.chromium.connect_over_cdp(
-        connection['ws_url'],
-        timeout=150000
-    )
+async def playwright_example():
+    # Create Grasp instance and launch session
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False
+        },
+        'timeout': 3600000
+    })
     
-    # Use browser as normal Playwright browser instance
-    page = await browser.new_page()
-    # ... your automation code
+    try:
+        async with async_playwright() as p:
+            # Connect to the remote browser
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            # Create a new page
+            page = await browser.new_page()
+            
+            # Navigate and interact
+            await page.goto('https://example.com')
+            await page.fill('input[name="search"]', 'Grasp SDK')
+            await page.click('button[type="submit"]')
+            
+            # Take screenshot and save to remote downloads
+            await page.screenshot(path='/home/user/downloads/result.png')
+            
+            # Download screenshot to local
+            await session.files.download_file('/home/user/downloads/result.png', './result.png')
+            
+            # Clean up
+            await browser.close()
     
-    await browser.close()
+    finally:
+        # Always close the session
+        await session.close()
+
+asyncio.run(playwright_example())
 ```
 
 ## Advanced Examples
@@ -158,15 +357,25 @@ async with async_playwright() as p:
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def multiple_pages():
     """Example with multiple pages and contexts"""
     
-    async with GraspServer({'timeout': 3600000}) as connection:
+    # Create Grasp instance and launch session
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False
+        },
+        'timeout': 3600000
+    })
+    
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(
-                connection['ws_url'],
+                session.browser.get_endpoint(),
                 timeout=150000
             )
             
@@ -184,16 +393,24 @@ async def multiple_pages():
                 page2.goto('https://httpbin.org/json')
             )
             
-            # Take screenshots
+            # Take screenshots and save to remote downloads
             await asyncio.gather(
-                page1.screenshot(path='example.png'),
-                page2.screenshot(path='httpbin.png')
+                page1.screenshot(path='/home/user/downloads/example.png'),
+                page2.screenshot(path='/home/user/downloads/httpbin.png')
             )
+            
+            # Download screenshots to local
+            await session.files.download_file('/home/user/downloads/example.png', './example.png')
+            await session.files.download_file('/home/user/downloads/httpbin.png', './httpbin.png')
             
             # Clean up
             await context1.close()
             await context2.close()
             await browser.close()
+    
+    finally:
+        # Always close the session
+        await session.close()
 
 # Run the example
 asyncio.run(multiple_pages())
@@ -204,26 +421,35 @@ asyncio.run(multiple_pages())
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def with_error_handling():
     """Example with proper error handling"""
     
+    # Create Grasp instance and launch session
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': False
+        },
+        'timeout': 3600000
+    })
+    
     browser = None
     
     try:
-        async with GraspServer({'timeout': 3600000}) as connection:
-            async with async_playwright() as p:
-                browser = await p.chromium.connect_over_cdp(
-                    connection['ws_url'],
-                    timeout=150000
-                )
-                
-                page = await browser.new_page()
-                await page.goto('https://example.com')
-                
-                # Your automation code here
-                
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            page = await browser.new_page()
+            await page.goto('https://example.com')
+            
+            # Your automation code here
+            
     except Exception as error:
         print(f"Error during browser automation: {error}")
         raise
@@ -231,6 +457,8 @@ async def with_error_handling():
         # Always clean up resources
         if browser:
             await browser.close()
+        # Always close the session
+        await session.close()
 
 # Run the example
 asyncio.run(with_error_handling())
@@ -241,19 +469,25 @@ asyncio.run(with_error_handling())
 ```python
 import asyncio
 from playwright.async_api import async_playwright
-from grasp_sdk import GraspServer
+from grasp_sdk import Grasp
 
 async def scrape_website():
     """Example of web scraping with Grasp SDK"""
     
-    async with GraspServer({
-        'timeout': 3600000,
-        'headless': True,  # Use headless mode for scraping
-    }) as connection:
-        
+    # Create Grasp instance and launch session
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = await grasp.launch({
+        'browser': {
+            'type': 'chrome-stable',
+            'headless': True  # Use headless mode for scraping
+        },
+        'timeout': 3600000
+    })
+    
+    try:
         async with async_playwright() as p:
             browser = await p.chromium.connect_over_cdp(
-                connection['ws_url'],
+                session.browser.get_endpoint(),
                 timeout=150000
             )
             
@@ -285,6 +519,10 @@ async def scrape_website():
                 print(f"- {quote['text']} - {quote['author']}")
             
             await browser.close()
+    
+    finally:
+        # Always close the session
+        await session.close()
 
 # Run the scraping example
 asyncio.run(scrape_website())
@@ -292,20 +530,210 @@ asyncio.run(scrape_website())
 
 ## Resource Management
 
+Proper resource management is crucial when working with cloud browsers:
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
+
+async def resource_management_example():
+    """Example showing proper resource management"""
+    
+    # Create Grasp instance
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = None
+    browser = None
+    
+    try:
+        # Launch session
+        session = await grasp.launch({
+            'browser': {
+                'type': 'chrome-stable',
+                'headless': False
+            },
+            'timeout': 3600000
+        })
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            page = await browser.new_page()
+            await page.goto('https://example.com')
+            
+            # Take screenshot and save to remote downloads
+            await page.screenshot(path='/home/user/downloads/example.png')
+            
+            # Download screenshot to local using session.files
+            await session.files.download_file('/home/user/downloads/example.png', './example.png')
+            
+            # Use terminal service for additional operations
+            terminal_result = await session.terminal.run_command('ls -la /home/user/downloads/')
+            await terminal_result.end()
+            print(f"Downloads directory: {terminal_result.stdout.getvalue()}")
+            
+    except Exception as e:
+        print(f"Error: {e}")
+        
+    finally:
+        # Clean up in proper order
+        if browser:
+            await browser.close()
+        if session:
+            await session.close()
+
+asyncio.run(resource_management_example())
+```
+
 **Important Notes for Python SDK:**
 
-- **Recommended**: Use the async context manager as shown in the examples above. This ensures cloud browser and compute resources are immediately reclaimed when code execution ends, minimizing consumption.
+- **Recommended**: Always use proper session management with `try/finally` blocks as shown in the examples above. This ensures cloud browser and compute resources are immediately reclaimed when code execution ends, minimizing consumption.
 
-- **Alternative**: If not using the async context manager, resources will still be destroyed by the monitoring service after `browser.close()`, but usually with a delay of several tens of seconds, which may cause additional resource usage.
+- **Alternative**: If not properly closing sessions, resources will still be destroyed by the monitoring service after the session timeout, but this may cause additional resource usage.
 
 ## Best Practices
 
-1. **Use Async Context Managers**: Always use `async with GraspServer()` for automatic resource cleanup
-2. **Proper Error Handling**: Implement try-catch blocks and cleanup in finally blocks
-3. **Resource Cleanup**: Always close browsers, contexts, and pages properly
+### Session Management
+1. **Always Close Sessions**: Use `try/finally` blocks to ensure sessions are closed properly
+2. **Single Session Per Task**: Create one session per automation task for better isolation
+3. **Proper Error Handling**: Implement comprehensive error handling with cleanup
 4. **Timeout Configuration**: Set appropriate timeouts based on your use case
-5. **Headless Mode**: Use headless mode for better performance when visual rendering isn't needed
-6. **Concurrent Operations**: Use `asyncio.gather()` for parallel operations when possible
+
+### Browser Operations
+1. **Headless Mode**: Use headless mode for better performance when visual rendering isn't needed
+2. **Connection Timeouts**: Set appropriate CDP connection timeouts (recommended: 150000ms)
+3. **Resource Cleanup**: Always close browsers, contexts, and pages in proper order
+4. **Graceful Degradation**: Handle network issues and browser crashes gracefully
+
+### File Management
+1. **Use Remote Paths**: Save files to `/home/user/downloads/` in the sandbox first
+2. **Download When Needed**: Use `session.files.download_file()` to transfer files locally
+3. **Batch Operations**: Group file operations when possible for better performance
+4. **Clean Up Remote Files**: Remove temporary files from the sandbox when done
+
+### Terminal Operations
+1. **Stream Handling**: Always call `await result.end()` for terminal commands
+2. **Error Checking**: Check both stdout and stderr for command results
+3. **Working Directory**: Use the `cwd` option to set the working directory
+4. **Environment Variables**: Pass environment variables through the `env` option
+
+### Integration with Services
+1. **Combine Services**: Use browser, terminal, and files services together for complex workflows
+2. **Service Dependencies**: Ensure services are available before using them
+3. **Async Operations**: Use `asyncio.gather()` for concurrent operations when safe
+
+### Debug Mode
+
+Enable debug mode for troubleshooting:
+
+```python
+import logging
+from grasp_sdk import Grasp
+
+# Enable debug logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Create Grasp instance and launch session with debug mode
+grasp = Grasp({'apiKey': 'your_api_key'})
+session = await grasp.launch({
+    'browser': {
+        'type': 'chrome-stable',
+        'headless': False
+    },
+    'debug': True,  # Enable debug mode
+    'timeout': 3600000
+})
+
+try:
+    # Your code here
+    pass
+finally:
+    await session.close()
+```
+
+### Complete Example with Best Practices
+
+```python
+import asyncio
+import logging
+from playwright.async_api import async_playwright
+from grasp_sdk import Grasp
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def best_practices_example():
+    """Example demonstrating all best practices"""
+    
+    grasp = Grasp({'apiKey': 'your_api_key'})
+    session = None
+    browser = None
+    
+    try:
+        # Launch session with proper configuration
+        session = await grasp.launch({
+            'browser': {
+                'type': 'chrome-stable',
+                'headless': True,  # Use headless for production
+                'adblock': True
+            },
+            'timeout': 3600000,
+            'debug': False
+        })
+        
+        logger.info(f"Session started: {session.id}")
+        
+        # Connect to browser with timeout
+        async with async_playwright() as p:
+            browser = await p.chromium.connect_over_cdp(
+                session.browser.get_endpoint(),
+                timeout=150000
+            )
+            
+            # Create page and navigate
+            page = await browser.new_page()
+            await page.goto('https://example.com', wait_until='domcontentloaded')
+            
+            # Take screenshot to remote location
+            screenshot_path = '/home/user/downloads/screenshot.png'
+            await page.screenshot(path=screenshot_path, full_page=True)
+            
+            # Use terminal to check file
+            terminal_result = await session.terminal.run_command(f'ls -la {screenshot_path}')
+            await terminal_result.end()
+            
+            if terminal_result.stdout.getvalue():
+                logger.info("Screenshot saved successfully")
+                
+                # Download to local
+                await session.files.download_file(screenshot_path, './local_screenshot.png')
+                logger.info("Screenshot downloaded to local")
+            
+            # Clean up remote file
+            cleanup_result = await session.terminal.run_command(f'rm {screenshot_path}')
+            await cleanup_result.end()
+            
+    except Exception as e:
+        logger.error(f"Error during automation: {e}")
+        raise
+        
+    finally:
+        # Clean up in proper order
+        if browser:
+            await browser.close()
+            logger.info("Browser closed")
+        
+        if session:
+            await session.close()
+            logger.info("Session closed")
+
+if __name__ == '__main__':
+    asyncio.run(best_practices_example())
+```
 
 ## Common Patterns
 
@@ -324,21 +752,4 @@ load_dotenv()  # Load environment variables from .env file
 api_key = os.getenv('GRASP_KEY')
 if not api_key:
     raise ValueError("GRASP_KEY environment variable is required")
-```
-
-### Logging and Debugging
-
-```python
-import logging
-from grasp_sdk import GraspServer
-
-# Enable debug logging
-logging.basicConfig(level=logging.DEBUG)
-
-async with GraspServer({
-    'debug': True,  # Enable debug mode
-    'timeout': 3600000,
-}) as connection:
-    # Your code here
-    pass
 ```
