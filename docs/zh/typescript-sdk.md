@@ -172,14 +172,18 @@ new Grasp(options?: GraspOptions)
 
 #### 方法
 
-##### `runCommand(command: string, options?: { cwd?: string }): Promise<TerminalCommand>`
+##### `runCommand(command: string, options?: object): Promise<TerminalCommand>`
 
 在远程终端中运行命令。
 
 **参数：**
 - `command` (string): 要执行的命令
-- `options` (object, 可选): 选项
+- `options` (object, 可选): 命令执行选项
   - `cwd` (string, 可选): 工作目录
+  - `envs` (object, 可选): 环境变量
+  - `timeoutMs` (number, 可选): 命令超时时间（毫秒）
+  - `user` (string, 可选): 运行命令的用户
+  - `background` (boolean, 可选): 在后台运行命令
 
 **返回值：**
 - `Promise<TerminalCommand>`: 命令执行实例

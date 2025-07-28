@@ -289,8 +289,10 @@ Executes a shell command and returns a streamable response.
 - `command` (string): Shell command to execute
 - `options` (object, optional): Command execution options
   - `cwd` (string, optional): Working directory for the command
-  - `env` (object, optional): Environment variables
-  - `timeout` (number, optional): Command timeout in milliseconds
+  - `envs` (object, optional): Environment variables
+  - `timeoutMs` (number, optional): Command timeout in milliseconds
+  - `user` (string, optional): User to run the command as
+  - `background` (boolean, optional): Run command in background
 
 **Returns:**
 - `Promise<StreamableCommandResponse>`: Object with:
@@ -318,8 +320,8 @@ await command.end();
 // Run command with options
 const command2 = await terminal.runCommand('npm install', {
   cwd: '/home/user/project',
-  env: { NODE_ENV: 'development' },
-  timeout: 300000
+  envs: { NODE_ENV: 'development' },
+  timeoutMs: 300000
 });
 
 // Get result as JSON

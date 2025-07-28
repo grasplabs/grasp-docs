@@ -236,8 +236,11 @@ Executes a command in the sandbox terminal.
 - `command` (str): Command to execute
 - `options` (dict, optional): Execution options
   - `cwd` (str): Working directory
-  - `env` (dict): Environment variables
-  - `timeout` (int): Command timeout in milliseconds
+  - `envs` (dict): Environment variables
+  - `timeout_ms` (int): Command timeout in milliseconds
+  - `user` (str): User to run the command as
+  - `inBackground` (bool): Run command in background (handled automatically)
+  - `nohup` (bool): Use nohup for background execution (Grasp-specific)
 
 **Returns:**
 - `StreamableCommandResult`: Command result with streaming capabilities
@@ -618,7 +621,9 @@ asyncio.run(resource_management_example())
 1. **Stream Handling**: Always call `await result.end()` for terminal commands
 2. **Error Checking**: Check both stdout and stderr for command results
 3. **Working Directory**: Use the `cwd` option to set the working directory
-4. **Environment Variables**: Pass environment variables through the `env` option
+4. **Environment Variables**: Pass environment variables through the `envs` option
+5. **User Context**: Use the `user` option to run commands as specific users
+6. **Timeout Management**: Set appropriate timeouts using `timeout_ms` option
 
 ### Integration with Services
 1. **Combine Services**: Use browser, terminal, and files services together for complex workflows

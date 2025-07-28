@@ -182,13 +182,19 @@ Playwrightが接続するためのCDP WebSocket URLを取得します。
 
 #### メソッド
 
-##### `run_command(command: str, cwd: str = None) -> TerminalCommand`
+##### `run_command(command: str, options: dict = None) -> TerminalCommand`
 
 リモートターミナルでコマンドを実行します。
 
 **パラメータ：**
 - `command` (str): 実行するコマンド
-- `cwd` (str, オプション): 作業ディレクトリ
+- `options` (dict, オプション): コマンド実行オプション
+  - `cwd` (str, オプション): 作業ディレクトリ
+  - `envs` (dict, オプション): 環境変数
+  - `timeout_ms` (int, オプション): コマンドタイムアウト（ミリ秒）
+  - `user` (str, オプション): コマンドを実行するユーザー
+  - `inBackground` (bool, オプション): バックグラウンドでコマンドを実行（自動処理）
+  - `nohup` (bool, オプション): バックグラウンド実行にnohupを使用（Grasp固有）
 
 **戻り値：**
 - `TerminalCommand`: コマンド実行インスタンス

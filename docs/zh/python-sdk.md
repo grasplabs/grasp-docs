@@ -225,8 +225,11 @@ session = await grasp.launch({
 - `command` (str): 要执行的 shell 命令
 - `options` (dict, 可选): 命令执行选项
   - `cwd` (str, 可选): 命令的工作目录
-  - `env` (dict, 可选): 环境变量
-  - `timeout` (int, 可选): 命令超时时间（毫秒）
+  - `envs` (dict, 可选): 环境变量
+  - `timeout_ms` (int, 可选): 命令超时时间（毫秒）
+  - `user` (str, 可选): 运行命令的用户
+  - `inBackground` (bool, 可选): 在后台运行命令（自动处理）
+  - `nohup` (bool, 可选): 使用 nohup 进行后台执行（Grasp 特有）
 
 **返回：**
 - `StreamableCommandResult`: 包含以下方法的对象：

@@ -176,9 +176,12 @@ main();
 
 - `runCommand(command, options?)`: コマンドを実行
   - `command` (string): 実行するコマンド
-  - `options` (object, オプション):
+  - `options` (object, オプション): コマンド実行オプション
     - `cwd` (string, オプション): 作業ディレクトリ
-    - `env` (object, オプション): 環境変数
+    - `envs` (object, オプション): 環境変数
+    - `timeoutMs` (number, オプション): コマンドタイムアウト（ミリ秒）
+    - `user` (string, オプション): コマンドを実行するユーザー
+    - `background` (boolean, オプション): バックグラウンドでコマンドを実行
   - 戻り値: `Promise<TerminalCommand>`
 
 ### `FileSystemService`
