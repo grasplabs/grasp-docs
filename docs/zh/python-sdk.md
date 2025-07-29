@@ -129,6 +129,7 @@ grasp = Grasp(api_key='your_api_key_here')
     - `type` (str, 可选): 浏览器类型 - `'chromium'` 或 `'chrome-stable'`。默认：`'chromium'`
     - `headless` (bool, 可选): 以无头模式运行。默认：`True`
     - `adblock` (bool, 可选): 启用广告拦截。默认：`False`
+    - `liveview` (bool, 可选): 启用实时浏览器监控的实时视图。默认：`False`
   - `timeout` (int, 可选): 最大会话持续时间（毫秒）。默认：900000（15分钟），最大：86400000（24小时）
   - `debug` (bool, 可选): 启用调试模式。默认：`False`
 
@@ -141,7 +142,8 @@ session = await grasp.launch({
     'browser': {
         'type': 'chrome-stable',
         'headless': False,
-        'adblock': True
+        'adblock': True,
+        'liveview': True
     },
     'timeout': 3600000,
     'debug': True
@@ -226,7 +228,7 @@ session = await grasp.launch({
 - `options` (dict, 可选): 命令执行选项
   - `cwd` (str, 可选): 命令的工作目录
   - `envs` (dict, 可选): 环境变量
-  - `timeout_ms` (int, 可选): 命令超时时间（毫秒）
+  - `timeoutMs` (int, 可选): 命令超时时间（毫秒）
   - `user` (str, 可选): 运行命令的用户
   - `inBackground` (bool, 可选): 在后台运行命令（自动处理）
   - `nohup` (bool, 可选): 使用 nohup 进行后台执行（Grasp 特有）
@@ -296,7 +298,8 @@ async def main():
     session = await grasp.launch({
         'browser': {
             'type': 'chrome-stable',
-            'headless': False
+            'headless': False,
+            'liveview': True
         }
     })
     

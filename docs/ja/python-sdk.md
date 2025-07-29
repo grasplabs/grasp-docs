@@ -130,6 +130,7 @@ Grasp(api_key: str = None)
     - `type` (str): ブラウザタイプ（デフォルト: 'chrome-stable'）
     - `headless` (bool): ヘッドレスモード（デフォルト: True）
     - `adblock` (bool): 広告ブロック（デフォルト: False）
+    - `liveview` (bool): リアルタイムブラウザ監視のためのライブビューを有効化（デフォルト: False）
   - `timeout` (int): タイムアウト（ミリ秒、デフォルト: 300000）
   - `debug` (bool): デバッグモード（デフォルト: False）
 
@@ -191,7 +192,7 @@ Playwrightが接続するためのCDP WebSocket URLを取得します。
 - `options` (dict, オプション): コマンド実行オプション
   - `cwd` (str, オプション): 作業ディレクトリ
   - `envs` (dict, オプション): 環境変数
-  - `timeout_ms` (int, オプション): コマンドタイムアウト（ミリ秒）
+  - `timeoutMs` (int, オプション): コマンドタイムアウト（ミリ秒）
   - `user` (str, オプション): コマンドを実行するユーザー
   - `inBackground` (bool, オプション): バックグラウンドでコマンドを実行（自動処理）
   - `nohup` (bool, オプション): バックグラウンド実行にnohupを使用（Grasp固有）
@@ -254,7 +255,8 @@ async def main():
     session = await grasp.launch({
         'browser': {
             'type': 'chrome-stable',
-            'headless': False
+            'headless': False,
+            'liveview': True
         },
         'debug': True
     })

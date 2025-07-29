@@ -46,7 +46,8 @@ async def main():
         'browser': {
             'type': 'chrome-stable',
             'headless': False,
-            'adblock': True
+            'adblock': True,
+            'liveview': True
         },
         'timeout': 3600000,  # Session runs for max 1 hour
         'debug': True
@@ -134,6 +135,7 @@ Launches a new browser session.
     - `type` (str): Browser type ('chrome-stable', 'chrome-dev', 'firefox')
     - `headless` (bool): Run browser in headless mode
     - `adblock` (bool): Enable ad blocking
+    - `liveview` (bool): Enable live view for real-time browser monitoring
   - `timeout` (int): Session timeout in milliseconds
   - `debug` (bool): Enable debug mode
 
@@ -237,7 +239,7 @@ Executes a command in the sandbox terminal.
 - `options` (dict, optional): Execution options
   - `cwd` (str): Working directory
   - `envs` (dict): Environment variables
-  - `timeout_ms` (int): Command timeout in milliseconds
+  - `timeoutMs` (int): Command timeout in milliseconds
   - `user` (str): User to run the command as
   - `inBackground` (bool): Run command in background (handled automatically)
   - `nohup` (bool): Use nohup for background execution (Grasp-specific)
@@ -623,7 +625,7 @@ asyncio.run(resource_management_example())
 3. **Working Directory**: Use the `cwd` option to set the working directory
 4. **Environment Variables**: Pass environment variables through the `envs` option
 5. **User Context**: Use the `user` option to run commands as specific users
-6. **Timeout Management**: Set appropriate timeouts using `timeout_ms` option
+6. **Timeout Management**: Set appropriate timeouts using `timeoutMs` option
 
 ### Integration with Services
 1. **Combine Services**: Use browser, terminal, and files services together for complex workflows

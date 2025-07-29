@@ -110,6 +110,7 @@ Launches a new browser session with comprehensive services.
     - `type` (string, optional): Browser type - `'chromium'` or `'chrome-stable'`. Default: `'chromium'`
     - `headless` (boolean, optional): Run in headless mode. Default: `true`
     - `adblock` (boolean, optional): Enable ad blocking. Default: `false`
+    - `liveview` (boolean, optional): Enable live view for real-time browser monitoring. Default: `false`
   - `keepAliveMS` (number, optional): Keep session alive duration in milliseconds
   - `timeout` (number, optional): Max session duration in milliseconds. Default: 900000 (15 minutes), Max: 86400000 (24 hours)
   - `debug` (boolean, optional): Enable debug mode. Default: `false`
@@ -124,7 +125,8 @@ const session = await grasp.launch({
   browser: {
     type: 'chrome-stable',
     headless: false,
-    adblock: true
+    adblock: true,
+    liveview: true
   },
   keepAliveMS: 300000,
   timeout: 3600000,
